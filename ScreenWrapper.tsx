@@ -1,50 +1,46 @@
-import { useNavigation } from '@react-navigation/native';
 import React from 'react';
-import { useContext } from 'react';
-import { Ionicons } from '@expo/vector-icons';
-import { EdgeInsets, useSafeAreaInsets } from 'react-native-safe-area-context';
 import styled from 'styled-native-components';
+import { useNavigation, useScrollToTop } from '@react-navigation/native';
+import { useContext } from 'react';
+import { EdgeInsets, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 type ScreenOptions = {
-  hasTabBar: boolean;
-  showMenuBar: boolean;
+  navType: 'bottom-tabs' | 'sidebar' | 'menu';
+  margins: [number, number, number, number];
 };
 export const ScreenWrapperContext = React.createContext<ScreenOptions>(null as any);
 
 const Wrapper = styled.ScrollView<{ safeArea: EdgeInsets; options: ScreenOptions }>`
-  margin-top: ${(p) => (p.options.showMenuBar ? 8 : 0)}rem;
+  margin: ${(p) => p.options.margins.join('px ')}px;
+  flex: 1;
   contentContainer {
     padding-top: ${(p) => p.safeArea.top}px;
-    padding-bottom: ${(p) => (p.options.hasTabBar ? 0 : p.safeArea.bottom)}px;
+    padding-bottom: ${(p) => (p.options.margins[2] ? 0 : p.safeArea.bottom)}px;
   }
 `;
 
-const MenuBar = styled.View`
-  position: absolute;
-  width: 100%;
-  height: 8rem;
-  background: $card;
-  elevation: 3;
-`;
-
-const MenuIcon = styled(Ionicons).attrs((p) => ({ size: 4 * p.theme.rem }))`
-  margin: 2rem;
+const Icon = styled(Ionicons).attrs((p) => {
+  return {
+    size: 8 * p.theme.rem,
+  };
+})`
+  margin: 4rem;
 `;
 
 export default function ScreenWrapper({ children }: { children: React.ReactNode }) {
   const safeArea = useSafeAreaInsets();
   const options = useContext(ScreenWrapperContext);
   const navigation = useNavigation();
+
+  const ref = React.useRef(null);
+  useScrollToTop(ref);
   return (
-    <>
-      <Wrapper safeArea={safeArea} options={options}>
-        {children}
-      </Wrapper>
-      {options.showMenuBar ? (
-        <MenuBar>
-          <MenuIcon name="menu" onPress={navigation.openDrawer} />
-        </MenuBar>
+    <Wrapper safeArea={safeArea} options={options} ref={ref}>
+      {navigation.getState().routes.length > 1 ? (
+        <Icon name="chevron-back" onPress={() => navigation.goBack()} />
       ) : null}
-    </>
+      {children}
+    </Wrapper>
   );
 }

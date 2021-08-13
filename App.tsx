@@ -27,7 +27,7 @@ export default function App() {
   const { fontScale } = useWindowDimensions();
   const theme = useMemo(
     () => ({
-      rem: 8 * fontScale,
+      rem: 4 * fontScale,
       elevation: (value: number) => ({
         shadowColor: 'black',
         shadowOffset: { width: value / 2, height: value },

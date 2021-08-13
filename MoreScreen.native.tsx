@@ -5,20 +5,20 @@ import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from './ScreenWrapper';
 
 const Item = styled.TouchableOpacity`
-  height: 4rem;
-  margin: 2rem;
+  height: 16rem;
+  margin: 4rem;
   flex-direction: row;
   align-items: center;
 `;
 
 type Props<C> = C extends React.ComponentType<infer TProps> ? TProps : null;
 
-const Icon = styled(Ionicons).attrs((p) => ({ size: 3 * p.theme.rem }))`
-  margin-right: 1rem;
+const Icon = styled(Ionicons).attrs((p) => ({ size: 6 * p.theme.rem }))`
+  margin-right: 2rem;
 `;
 
 const Label = styled.Text`
-  font-size: 2rem;
+  font-size: 4rem;
 `;
 
 export default function MoreScreen({
