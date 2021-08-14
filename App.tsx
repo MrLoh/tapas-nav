@@ -7,6 +7,7 @@ import { enableScreens } from 'react-native-screens';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import Navigator from './Navigator';
+import Screen from './Screen';
 
 enableScreens();
 
@@ -21,6 +22,58 @@ declare module 'styled-native-components' {
 // font scaling is disable globally and the app scales with the theme
 // @ts-ignore -- missing type definitions
 Text.defaultProps = { allowFontScaling: false };
+
+const routes = [
+  {
+    name: 'Dashboard',
+    path: '',
+    iconName: 'home',
+    component: Screen,
+  },
+  {
+    name: 'Reports',
+    path: 'reports',
+    iconName: 'bar-chart',
+    component: Screen,
+  },
+  {
+    name: 'DeviceList',
+    path: 'devices',
+    iconName: 'phone-landscape',
+    component: Screen,
+    routes: [
+      {
+        name: 'Device',
+        path: 'devices/:id',
+        component: Screen,
+      },
+    ],
+  },
+  {
+    name: 'Orders',
+    path: 'orders',
+    iconName: 'cart',
+    component: Screen,
+  },
+  {
+    name: 'Training',
+    path: 'training',
+    iconName: 'book',
+    component: Screen,
+  },
+  {
+    name: 'Upload',
+    path: 'upload',
+    iconName: 'cloud-upload',
+    component: Screen,
+  },
+  {
+    name: 'Share',
+    path: 'share',
+    iconName: 'share',
+    component: Screen,
+  },
+];
 
 export default function App() {
   const dark = useColorScheme() === 'dark';
@@ -45,7 +98,7 @@ export default function App() {
     <SafeAreaProvider>
       <ThemeProvider theme={theme}>
         <StatusBar style="auto" />
-        <Navigator />
+        <Navigator routes={routes} domain="https://tapas.com" />
       </ThemeProvider>
     </SafeAreaProvider>
   );

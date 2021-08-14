@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import styled from 'styled-native-components';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
+
 import { Platform } from 'react-native';
 import { EdgeInsets, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import Icon, { IconName } from './Icon';
+import TouchableLink from './TouchableLink';
+import { CommonActions, NavigationAction } from '@react-navigation/native';
 
 export const BOTTOM_TABS_HEIGHT = '20rem';
 export const SIDE_BAR_WIDTH = '60rem';
@@ -43,15 +47,6 @@ const MenuWrapper = styled.View`
   padding: 4rem;
 `;
 
-const Icon = styled(Ionicons).attrs<{ isFocused?: boolean }, { size: number; color: string }>(
-  (p) => {
-    return {
-      size: 6 * p.theme.rem,
-      color: p.theme.colors[p.isFocused ? 'primary' : 'text'],
-    };
-  }
-)``;
-
 const ToggleButton = styled.TouchableOpacity`
   position: absolute;
   right: 2rem;
@@ -62,14 +57,19 @@ const ToggleButton = styled.TouchableOpacity`
   border-radius: 3rem;
 `;
 
-const SideBarItem = styled.TouchableOpacity`
+const SideBarLinkWrapper = styled(TouchableLink)`
   flex-direction: row;
   justify-content: flex-start;
   align-items: center;
-  margin: 2rem 0;
+  margin: 1rem 0;
+  padding: 1rem 3rem;
+  border-radius: 1rem;
+  hovered {
+    background: $background;
+  }
 `;
 
-const BottomTabItem = styled.TouchableOpacity`
+const BottomTabItem = styled(TouchableLink)`
   justify-content: flex-start;
   align-items: center;
   margin-top: 2rem;
@@ -95,6 +95,30 @@ const MenuOverlay = styled.TouchableOpacity`
   z-index: 10;
 `;
 
+const SideBarItem = ({
+  collapsed,
+  isFocused,
+  iconName,
+  label,
+  ...props
+}: {
+  collapsed?: boolean;
+  isFocused: boolean;
+  iconName: IconName;
+  label: string;
+  routeName: string;
+  onCheckIfNavigationShouldBePrevented: () => boolean;
+  navigationAction: NavigationAction;
+  onAfterNavigation?: () => void;
+}) => {
+  return (
+    <SideBarLinkWrapper {...props}>
+      <Icon color={isFocused ? '$primary' : '$text'} size="6rem" name={iconName}></Icon>
+      {collapsed ? null : <SidebarLabel isFocused={isFocused}>{label}</SidebarLabel>}
+    </SideBarLinkWrapper>
+  );
+};
+
 export default function NavBar({
   type,
   collapsed,
@@ -108,23 +132,34 @@ export default function NavBar({
   type: 'bottom-tabs' | 'sidebar' | 'menu';
 }) {
   const getItemConfig = (route: typeof state.routes[number], index: number) => {
-    const { iconName } = descriptors[route.key].options;
+    // @ts-ignore -- cannot modify this type easily but it is passed
+    const iconName: IconName = descriptors[route.key].options.iconName;
     const isFocused = state.index === index;
-    const routeName = route.name;
-    const screenName = route.name.replace('Stack', '');
 
-    const onPress = () => {
+    const onCheckIfNavigationShouldBePrevented = () => {
       const event = navigation.emit({
         type: 'tabPress',
         target: route.key,
         canPreventDefault: true,
       });
-
-      if (!isFocused && !event.defaultPrevented) {
-        navigation.navigate(routeName, Platform.OS === 'web' ? { screen: screenName } : undefined);
-      }
+      return isFocused || event.defaultPrevented;
     };
-    return { iconName, isFocused, routeName, screenName, onPress };
+
+    const navigationAction = CommonActions.navigate(route.name, {
+      screen:
+        Platform.OS === 'web' && route.name.includes('Stack')
+          ? route.name.replace('Stack', '')
+          : undefined,
+    });
+
+    return {
+      routeName: route.name,
+      iconName,
+      label: route.name.replace('Stack', ''),
+      isFocused,
+      onCheckIfNavigationShouldBePrevented,
+      navigationAction,
+    };
   };
 
   const safeArea = useSafeAreaInsets();
@@ -135,33 +170,26 @@ export default function NavBar({
     case 'bottom-tabs':
       return (
         <BottomTabsWrapper>
-          {state.routes
-            .map(getItemConfig)
-            .map(({ iconName, isFocused, routeName, screenName, onPress }) => (
-              <BottomTabItem key={routeName} onPress={onPress}>
-                <Icon isFocused={isFocused} name={iconName}></Icon>
-                <BottomTabLabel isFocused={isFocused}>{screenName}</BottomTabLabel>
-              </BottomTabItem>
-            ))}
+          {state.routes.map(getItemConfig).map((item) => (
+            <BottomTabItem key={item.routeName} {...item}>
+              <Icon
+                color={item.isFocused ? '$primary' : '$text'}
+                name={item.iconName}
+                size="6rem"
+              />
+              <BottomTabLabel isFocused={item.isFocused}>{item.label}</BottomTabLabel>
+            </BottomTabItem>
+          ))}
         </BottomTabsWrapper>
       );
     case 'sidebar':
       return (
         <SidebarWrapper collapsed={collapsed} safeArea={safeArea}>
-          {state.routes
-            .map(getItemConfig)
-            .map(({ iconName, isFocused, routeName, screenName, onPress }) => {
-              return (
-                <SideBarItem key={routeName} onPress={onPress}>
-                  <Icon isFocused={isFocused} name={iconName}></Icon>
-                  {collapsed ? null : (
-                    <SidebarLabel isFocused={isFocused}>{screenName}</SidebarLabel>
-                  )}
-                </SideBarItem>
-              );
-            })}
+          {state.routes.map(getItemConfig).map((item) => {
+            return <SideBarItem collapsed={collapsed} key={item.routeName} {...item} />;
+          })}
           <ToggleButton onPress={toggleCollapsed}>
-            <Icon name={collapsed ? 'chevron-forward' : 'chevron-back'} color="card"></Icon>
+            <Icon name={collapsed ? 'chevron-forward' : 'chevron-back'} color="$text" size="6rem" />
           </ToggleButton>
         </SidebarWrapper>
       );
@@ -171,27 +199,20 @@ export default function NavBar({
           {menuOpen ? (
             <MenuOverlay onPress={() => setMenuOpen(false)}>
               <SidebarWrapper safeArea={safeArea}>
-                {state.routes
-                  .map(getItemConfig)
-                  .map(({ iconName, isFocused, routeName, screenName, onPress }) => {
-                    return (
-                      <SideBarItem
-                        key={routeName}
-                        onPress={() => {
-                          onPress();
-                          setMenuOpen(false);
-                        }}
-                      >
-                        <Icon isFocused={isFocused} name={iconName}></Icon>
-                        <SidebarLabel isFocused={isFocused}>{screenName}</SidebarLabel>
-                      </SideBarItem>
-                    );
-                  })}
+                {state.routes.map(getItemConfig).map((item) => {
+                  return (
+                    <SideBarItem
+                      key={item.routeName}
+                      onAfterNavigation={() => setMenuOpen(false)}
+                      {...item}
+                    />
+                  );
+                })}
               </SidebarWrapper>
             </MenuOverlay>
           ) : null}
           <MenuWrapper>
-            <Icon name="menu" onPress={() => setMenuOpen(true)} />
+            <Icon name="menu" color="$text" size="6rem" onPress={() => setMenuOpen(true)} />
           </MenuWrapper>
         </>
       );

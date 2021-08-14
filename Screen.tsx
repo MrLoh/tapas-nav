@@ -1,8 +1,9 @@
 import React from 'react';
 import { times } from 'lodash';
 import styled from 'styled-native-components';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import ScreenWrapper from './ScreenWrapper';
+import TouchableLink from './TouchableLink';
 
 const Title = styled.Text`
   font-size: 6rem;
@@ -10,7 +11,7 @@ const Title = styled.Text`
   margin: 4rem;
 `;
 
-const Card = styled.TouchableOpacity`
+const Card = styled(TouchableLink)`
   elevation: 2;
   background: $card;
   height: 40rem;
@@ -21,12 +22,11 @@ const Card = styled.TouchableOpacity`
 
 export default function Screen() {
   const { name, params } = useRoute<any>();
-  const navigation = useNavigation();
   return (
     <ScreenWrapper>
-      <Title>{name + (params?.num || '')}</Title>
+      <Title>{name + (params?.id || '')}</Title>
       {times(5, (i) => i + 1).map((i) => (
-        <Card onPress={() => navigation.push('Screen', { num: i })}>
+        <Card key={i} routeName={'Device'} params={{ id: 1 }}>
           <Title>{i}</Title>
         </Card>
       ))}

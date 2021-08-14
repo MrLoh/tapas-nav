@@ -21,11 +21,7 @@ const Label = styled.Text`
   font-size: 4rem;
 `;
 
-export default function MoreScreen({
-  items,
-}: {
-  items: { name: string; iconName: Props<typeof Ionicons>['name'] }[];
-}) {
+export default function MoreScreen({ items }: { items: { name: string; iconName: string }[] }) {
   const navigation = useNavigation();
   return (
     <ScreenWrapper>

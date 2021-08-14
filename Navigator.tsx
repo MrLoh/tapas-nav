@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Platform, useWindowDimensions } from 'react-native';
+import { LayoutAnimation, Platform, useWindowDimensions } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createDrawerNavigator } from '@react-navigation/drawer';
+import { useLengthAttribute } from 'styled-native-components';
+import * as Linking from 'expo-linking';
 
-import Screen from './Screen';
 import MoreScreen from './MoreScreen.native';
 import { ScreenWrapperContext } from './ScreenWrapper';
 import NavBar, {
@@ -14,7 +14,7 @@ import NavBar, {
   SIDE_BAR_WIDTH_COLLAPSED,
   MENU_HEIGHT,
 } from './NavBar';
-import { useLengthAttribute } from 'styled-native-components';
+import { IconName } from './Icon';
 
 declare global {
   namespace ReactNavigation {
@@ -25,34 +25,22 @@ declare global {
 }
 
 const Tab = createBottomTabNavigator();
-const Stack = createStackNavigator();
+
 const Modal = createStackNavigator();
 
-const tabs = [
-  { name: 'Dashboard', iconName: 'home' as const, Component: Screen },
-  { name: 'Reports', iconName: 'bar-chart' as const, Component: Screen },
-  { name: 'Devices', iconName: 'phone-landscape' as const, Component: Screen },
-  { name: 'Orders', iconName: 'cart' as const, Component: Screen },
-  { name: 'Training', iconName: 'book' as const, Component: Screen },
-  { name: 'Upload', iconName: 'cloud-upload' as const, Component: Screen },
-  { name: 'Share', iconName: 'share' as const, Component: Screen },
-];
+type RouteConfig = {
+  name: string;
+  path: string;
+  iconName: IconName;
+  component: React.ComponentType<{}>;
+  routes?: {
+    name: string;
+    path: string;
+    component: React.ComponentType<{}>;
+  }[];
+};
 
-const screens = [{ name: 'Screen', Component: Screen }];
-
-const truncateTabs = (tcs: typeof tabs, max?: number) =>
-  max
-    ? [
-        ...tcs.slice(0, max),
-        {
-          name: 'More',
-          iconName: 'menu' as const,
-          Component: () => <MoreScreen items={tcs.slice(4)} />,
-        },
-      ]
-    : tcs;
-
-export default function Navigator() {
+export default function Navigator({ routes, domain }: { routes: RouteConfig[]; domain: string }) {
   const isSmallScreen = useWindowDimensions().width < 500;
   const isNative = Platform.OS !== 'web';
   const navType = isNative
@@ -69,6 +57,41 @@ export default function Navigator() {
     [BOTTOM_TABS_HEIGHT, SIDE_BAR_WIDTH, SIDE_BAR_WIDTH_COLLAPSED, MENU_HEIGHT].join(' ')
   );
 
+  const linking = {
+    prefixes: [Linking.createURL('/'), domain],
+    config: {
+      screens: Object.assign(
+        {},
+        ...routes.map((tab) =>
+          tab.routes
+            ? {
+                [tab.name + 'Stack']: {
+                  initialRouteName: tab.name,
+                  path: tab.path,
+                  screens: Object.assign(
+                    { [tab.name]: { path: '' } },
+                    ...tab.routes.map((screen) => ({
+                      [screen.name]: { path: screen.path, exact: true },
+                    }))
+                  ),
+                },
+              }
+            : { [tab.name]: { path: tab.path } }
+        )
+      ),
+    },
+  };
+
+  const truncate = navType === 'bottom-tabs' && routes.length > 5 ? 4 : 0;
+
+  console.log(JSON.stringify(linking.config, null, 2));
+
+  const stackScreenOptions = {
+    header: () => null,
+    gestureResponseDistance:
+      (navType === 'sidebar' ? (sideBarCollapsed ? sidebarWidthCollapsed : sidebarWidth) : 0) + 50,
+  };
+
   return (
     <ScreenWrapperContext.Provider
       value={{
@@ -81,34 +104,69 @@ export default function Navigator() {
         ],
       }}
     >
-      <NavigationContainer>
+      <NavigationContainer linking={linking}>
         <Tab.Navigator
           screenOptions={{ header: () => null }}
           tabBar={(props) => (
             <NavBar
               type={navType}
               collapsed={sideBarCollapsed}
-              toggleCollapsed={() => setSideBarCollapsed((v) => !v)}
+              toggleCollapsed={() => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setSideBarCollapsed((v) => !v);
+              }}
               {...props}
             />
           )}
         >
-          {truncateTabs(tabs, navType === 'bottom-tabs' ? 4 : undefined).map(
-            ({ name, iconName, Component }) => (
-              <Tab.Screen name={name + 'Stack'} options={{ iconName }}>
-                {() => (
-                  <Stack.Navigator screenOptions={{ header: () => null }}>
-                    <Stack.Screen name={name} component={Component} />
-                    {[...(navType === 'bottom-tabs' ? tabs.slice(4) : []), ...screens].map(
-                      ({ name, Component }) => (
-                        <Stack.Screen name={name} component={Component} />
-                      )
-                    )}
-                  </Stack.Navigator>
-                )}
+          {(truncate ? routes.slice(0, truncate) : routes).map((tab) =>
+            tab.routes ? (
+              <Tab.Screen
+                name={tab.name + 'Stack'}
+                // @ts-ignore -- cannot easily modify this type
+                options={{ iconName: tab.iconName }}
+                key={tab.name}
+              >
+                {() => {
+                  const Stack = createStackNavigator();
+                  return (
+                    <Stack.Navigator screenOptions={stackScreenOptions}>
+                      <Stack.Screen name={tab.name} component={tab.component} />
+                      {tab.routes!.map(({ name, component }) => (
+                        <Stack.Screen name={name} key={name} component={component} />
+                      ))}
+                    </Stack.Navigator>
+                  );
+                }}
               </Tab.Screen>
+            ) : (
+              <Tab.Screen
+                name={tab.name}
+                key={tab.name}
+                component={tab.component}
+                // @ts-ignore -- cannot easily modify this type
+                options={{ iconName: tab.iconName }}
+              />
             )
           )}
+          {truncate ? (
+            // @ts-ignore -- cannot easily modify this type
+            <Tab.Screen name={'MoreStack'} options={{ iconName: 'menu' }}>
+              {() => {
+                const Stack = createStackNavigator();
+                return (
+                  <Stack.Navigator screenOptions={stackScreenOptions}>
+                    <Stack.Screen name="More">
+                      {() => <MoreScreen items={routes.slice(truncate)}></MoreScreen>}
+                    </Stack.Screen>
+                    {routes.slice(truncate).map(({ name, component }) => (
+                      <Stack.Screen name={name} key={name} component={component} />
+                    ))}
+                  </Stack.Navigator>
+                );
+              }}
+            </Tab.Screen>
+          ) : null}
         </Tab.Navigator>
       </NavigationContainer>
     </ScreenWrapperContext.Provider>

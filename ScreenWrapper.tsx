@@ -1,9 +1,10 @@
 import React from 'react';
 import styled from 'styled-native-components';
-import { useNavigation, useScrollToTop } from '@react-navigation/native';
+import { useNavigation, useNavigationState, useScrollToTop } from '@react-navigation/native';
 import { useContext } from 'react';
 import { EdgeInsets, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+
+import Icon from './Icon';
 
 type ScreenOptions = {
   navType: 'bottom-tabs' | 'sidebar' | 'menu';
@@ -20,14 +21,6 @@ const Wrapper = styled.ScrollView<{ safeArea: EdgeInsets; options: ScreenOptions
   }
 `;
 
-const Icon = styled(Ionicons).attrs((p) => {
-  return {
-    size: 8 * p.theme.rem,
-  };
-})`
-  margin: 4rem;
-`;
-
 export default function ScreenWrapper({ children }: { children: React.ReactNode }) {
   const safeArea = useSafeAreaInsets();
   const options = useContext(ScreenWrapperContext);
@@ -35,10 +28,13 @@ export default function ScreenWrapper({ children }: { children: React.ReactNode 
 
   const ref = React.useRef(null);
   useScrollToTop(ref);
+
+  // need to get state this way to ensure it refreshes
+  const showBackButton = useNavigationState((s) => s.type === 'stack' && s.routes.length > 1);
   return (
     <Wrapper safeArea={safeArea} options={options} ref={ref}>
-      {navigation.getState().routes.length > 1 ? (
-        <Icon name="chevron-back" onPress={() => navigation.goBack()} />
+      {showBackButton ? (
+        <Icon name="chevron-back" size="8rem" onPress={() => navigation.goBack()} />
       ) : null}
       {children}
     </Wrapper>
