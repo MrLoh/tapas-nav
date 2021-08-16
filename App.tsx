@@ -6,8 +6,10 @@ import { DefaultTheme, DarkTheme, Theme as NavigationTheme } from '@react-naviga
 import { enableScreens } from 'react-native-screens';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import Navigator from './Navigator';
-import Screen from './Screen';
+import { UniversalNavigator, useNavType } from './shared-components';
+
+import Screen from './screens/Screen';
+import MoreScreen from './screens/MoreScreen.native';
 
 enableScreens();
 
@@ -23,77 +25,119 @@ declare module 'styled-native-components' {
 // @ts-ignore -- missing type definitions
 Text.defaultProps = { allowFontScaling: false };
 
-const config = {
-  domain: 'https://tapas.com',
-  tabScreens: {
-    Dashboard: {
-      exactPath: '/',
-      iconName: 'home' as const,
+const Dashboard = {
+  exactPath: '/',
+  iconName: 'home' as const,
+  component: Screen,
+};
+
+const Reports = {
+  exactPath: '/reports',
+  iconName: 'bar-chart' as const,
+  component: Screen,
+};
+
+const DevicesList = {
+  exactPath: '/devices',
+  iconName: 'phone-landscape' as const,
+  component: Screen,
+  stackScreens: {
+    Device: {
+      exactPath: '/devices/:deviceId',
       component: Screen,
     },
-    Reports: {
-      exactPath: '/reports',
-      iconName: 'bar-chart' as const,
+    Update: {
+      exactPath: '/update/:updateId',
       component: Screen,
     },
-    DevicesList: {
-      exactPath: '/devices',
-      iconName: 'phone-landscape' as const,
-      component: Screen,
-      stackScreens: {
-        Device: {
-          exactPath: '/devices/:deviceId',
-          component: Screen,
-        },
-        Update: {
-          exactPath: '/update/:updateId',
-          component: Screen,
-        },
-        UpdateCourse: {
-          exactPath: '/update/:updateId/course/:courseId',
-          component: Screen,
-        },
-        UpdateLesson: {
-          exactPath: '/update/:updateId/course/:courseId/lesson/:lessonId',
-          component: Screen,
-        },
-      },
-    },
-    OrdersList: {
-      exactPath: '/orders',
-      iconName: 'cart' as const,
+    UpdateCourse: {
+      exactPath: '/update/:updateId/course/:courseId',
       component: Screen,
     },
-    Training: {
-      exactPath: '/training',
-      iconName: 'book' as const,
-      component: Screen,
-      stackScreens: {
-        InPersonTrainingPrep: {
-          exactPath: '/in-person-training-prep',
-          component: Screen,
-        },
-        Course: {
-          exactPath: '/course/:courseId',
-          component: Screen,
-        },
-        Lesson: {
-          exactPath: '/course/:courseId/lesson/:lessonId',
-          component: Screen,
-        },
-      },
-    },
-    Upload: {
-      exactPath: '/upload',
-      iconName: 'cloud-upload' as const,
-      component: Screen,
-    },
-    Share: {
-      exactPath: '/share',
-      iconName: 'share' as const,
+    UpdateLesson: {
+      exactPath: '/update/:updateId/course/:courseId/lesson/:lessonId',
       component: Screen,
     },
   },
+};
+
+const OrdersList = {
+  exactPath: '/orders',
+  iconName: 'cart' as const,
+  component: Screen,
+};
+
+const Training = {
+  exactPath: '/training',
+  iconName: 'book' as const,
+  component: Screen,
+  stackScreens: {
+    InPersonTrainingPrep: {
+      exactPath: '/in-person-training-prep',
+      component: Screen,
+    },
+    Course: {
+      exactPath: '/course/:courseId',
+      component: Screen,
+    },
+    Lesson: {
+      exactPath: '/course/:courseId/lesson/:lessonId',
+      component: Screen,
+    },
+  },
+};
+
+const Upload = {
+  exactPath: '/upload',
+  iconName: 'cloud-upload' as const,
+  component: Screen,
+};
+
+const Share = {
+  exactPath: '/share',
+  iconName: 'share' as const,
+  component: Screen,
+};
+
+const More = {
+  exactPath: '/more',
+  iconName: 'menu' as const,
+  component: MoreScreen,
+  stackScreens: {
+    ...Training.stackScreens,
+    Training,
+    Upload,
+    Share,
+  },
+};
+
+const Navigator = () => {
+  const { navType } = useNavType();
+  return (
+    <UniversalNavigator
+      config={{
+        domain: 'https://tapas.com',
+        tabScreens:
+          navType === 'bottom-tabs'
+            ? {
+                Dashboard,
+                Reports,
+                DevicesList,
+                OrdersList,
+                More,
+              }
+            : {
+                Dashboard,
+                Reports,
+                DevicesList,
+                OrdersList,
+                Training,
+                Upload,
+                Share,
+              },
+      }}
+    />
+  );
 };
 
 export default function App() {
@@ -115,11 +159,12 @@ export default function App() {
     }),
     [fontScale, dark]
   );
+
   return (
     <SafeAreaProvider>
       <ThemeProvider theme={theme}>
         <StatusBar style="auto" />
-        <Navigator config={config} />
+        <Navigator />
       </ThemeProvider>
     </SafeAreaProvider>
   );

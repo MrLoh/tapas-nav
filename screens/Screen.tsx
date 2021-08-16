@@ -2,8 +2,8 @@ import React from 'react';
 import { times } from 'lodash';
 import styled from 'styled-native-components';
 import { useRoute } from '@react-navigation/native';
-import ScreenWrapper from './ScreenWrapper';
-import TouchableLink from './TouchableLink';
+
+import { ScreenWrapper, TouchableLink } from '../shared-components';
 
 const Title = styled.Text`
   font-size: 6rem;

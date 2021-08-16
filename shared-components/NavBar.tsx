@@ -10,9 +10,11 @@ import TouchableLink from './TouchableLink';
 import { CommonActions, NavigationAction } from '@react-navigation/native';
 
 export const BOTTOM_TABS_HEIGHT = '20rem';
-export const SIDE_BAR_WIDTH = '60rem';
-export const SIDE_BAR_WIDTH_COLLAPSED = '20rem';
+export const SIDEBAR_WIDTH = '60rem';
+export const SIDEBAR_WIDTH_COLLAPSED = '20rem';
 export const MENU_HEIGHT = '16rem';
+export const SIDEBAR_BREAKPOINT = '160rem';
+export const SIDEBAR_COLLAPSED_BREAKPOINT = '250rem';
 
 const BottomTabsWrapper = styled.View`
   position: absolute;
@@ -28,7 +30,7 @@ const BottomTabsWrapper = styled.View`
 const SidebarWrapper = styled.ScrollView<{ collapsed?: boolean; safeArea: EdgeInsets }>`
   position: absolute;
   height: 100%;
-  width: ${(p) => (p.collapsed ? SIDE_BAR_WIDTH_COLLAPSED : SIDE_BAR_WIDTH)};
+  width: ${(p) => (p.collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH)};
   background: $card;
   elevation: 3;
   contentContainer {

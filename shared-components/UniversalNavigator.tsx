@@ -6,13 +6,14 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useLengthAttribute } from 'styled-native-components';
 import * as Linking from 'expo-linking';
 
-import MoreScreen from './MoreScreen.native';
 import { ScreenContextProvider } from './ScreenContext';
 import NavBar, {
   BOTTOM_TABS_HEIGHT,
-  SIDE_BAR_WIDTH,
-  SIDE_BAR_WIDTH_COLLAPSED,
+  SIDEBAR_WIDTH,
+  SIDEBAR_WIDTH_COLLAPSED,
+  SIDEBAR_BREAKPOINT,
   MENU_HEIGHT,
+  SIDEBAR_COLLAPSED_BREAKPOINT,
 } from './NavBar';
 import { IconName } from './Icon';
 
@@ -44,22 +45,30 @@ type NavigatorConfig = {
   };
 };
 
-export default function Navigator({ config }: { config: NavigatorConfig }) {
-  const isSmallScreen = useWindowDimensions().width < 500;
+export const useNavType = () => {
+  const [sidebarBreakpoint, sidebarCollapsedBreakpoint] = useLengthAttribute(
+    [SIDEBAR_BREAKPOINT, SIDEBAR_COLLAPSED_BREAKPOINT].join(' ')
+  );
+  const screenWidth = useWindowDimensions().width;
   const isNative = Platform.OS !== 'web';
   const navType = isNative
-    ? isSmallScreen
-      ? 'bottom-tabs'
-      : 'sidebar'
-    : isSmallScreen
-    ? 'menu'
-    : 'sidebar';
+    ? screenWidth < sidebarBreakpoint
+      ? ('bottom-tabs' as const)
+      : ('sidebar' as const)
+    : screenWidth < sidebarBreakpoint
+    ? ('menu' as const)
+    : ('sidebar' as const);
+  const sidebarDefaultCollapsedState = sidebarCollapsedBreakpoint > screenWidth;
 
-  const [sideBarCollapsed, setSideBarCollapsed] = useState(false);
+  return { navType, isNative, sidebarDefaultCollapsedState };
+};
 
+export default function UniversalNavigator({ config }: { config: NavigatorConfig }) {
   const [bottomTabsHeight, sidebarWidth, sidebarWidthCollapsed, menuHeight] = useLengthAttribute(
-    [BOTTOM_TABS_HEIGHT, SIDE_BAR_WIDTH, SIDE_BAR_WIDTH_COLLAPSED, MENU_HEIGHT].join(' ')
+    [BOTTOM_TABS_HEIGHT, SIDEBAR_WIDTH, SIDEBAR_WIDTH_COLLAPSED, MENU_HEIGHT].join(' ')
   );
+  const { navType, sidebarDefaultCollapsedState } = useNavType();
+  const [sideBarCollapsed, setSideBarCollapsed] = useState(sidebarDefaultCollapsedState);
 
   const linking = {
     prefixes: [Linking.createURL('/'), config.domain],
@@ -107,6 +116,9 @@ export default function Navigator({ config }: { config: NavigatorConfig }) {
   // different stack than the one you are currently in, thus we build a custom solution
   const buildLink = (name: string, params?: { [key: string]: string | number }) => {
     const path = pathMap[name] || pathMap[name.replace('Stack', '')];
+    if (!path) {
+      throw new Error(`no path found for route name ${name}`);
+    }
     let link = path;
     if (params) {
       Object.entries(params).forEach(([param, value]) => {
@@ -121,9 +133,6 @@ export default function Navigator({ config }: { config: NavigatorConfig }) {
     }
     return link;
   };
-
-  const truncate =
-    navType === 'bottom-tabs' && Object.entries(config.tabScreens).length > 5 ? 4 : 0;
 
   const stackScreenOptions = {
     header: () => null,
@@ -159,15 +168,17 @@ export default function Navigator({ config }: { config: NavigatorConfig }) {
             />
           )}
         >
-          {(truncate
-            ? Object.entries(config.tabScreens).slice(0, truncate)
-            : Object.entries(config.tabScreens)
-          ).map(([tabName, tabConfig]) =>
+          {Object.entries(config.tabScreens).map(([tabName, tabConfig]) =>
             tabConfig.stackScreens ? (
               <Tab.Screen
                 name={tabName + 'Stack'}
-                // @ts-ignore -- cannot easily modify this type
-                options={{ iconName: tabConfig.iconName }}
+                options={{
+                  // @ts-ignore -- cannot easily modify this type
+                  iconName: tabConfig.iconName,
+                  // cannot be lazy so the stack navigator is initialized when navigating to a sub
+                  // screen from a different tab (e.g. from dashboard to order details)
+                  lazy: false,
+                }}
                 key={tabName}
               >
                 {() => {
@@ -192,32 +203,6 @@ export default function Navigator({ config }: { config: NavigatorConfig }) {
               />
             )
           )}
-          {truncate ? (
-            // @ts-ignore -- cannot easily modify this type
-            <Tab.Screen name={'MoreStack'} options={{ iconName: 'menu' }}>
-              {() => {
-                const Stack = createStackNavigator();
-                return (
-                  <Stack.Navigator screenOptions={stackScreenOptions}>
-                    <Stack.Screen name="More">
-                      {() => (
-                        <MoreScreen
-                          items={Object.entries(config.tabScreens)
-                            .slice(truncate)
-                            .map(([name, { iconName }]) => ({ name, iconName }))}
-                        ></MoreScreen>
-                      )}
-                    </Stack.Screen>
-                    {Object.entries(config.tabScreens)
-                      .slice(truncate)
-                      .map(([name, { component }]) => (
-                        <Stack.Screen name={name} key={name} component={component} />
-                      ))}
-                  </Stack.Navigator>
-                );
-              }}
-            </Tab.Screen>
-          ) : null}
         </Tab.Navigator>
       </NavigationContainer>
     </ScreenContextProvider>
