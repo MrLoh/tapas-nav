@@ -9,6 +9,7 @@ const Title = styled.Text`
   font-size: 6rem;
   text-align: center;
   margin: 4rem;
+  color: $text;
 `;
 
 const Card = styled(TouchableLink)`
@@ -26,7 +27,7 @@ export default function Screen() {
     <ScreenWrapper>
       <Title>{name + (params?.id || '')}</Title>
       {times(5, (i) => i + 1).map((i) => (
-        <Card key={i} routeName={'Device'} params={{ id: 1 }}>
+        <Card key={i} routeName={'Device'} params={{ deviceId: 1 }}>
           <Title>{i}</Title>
         </Card>
       ))}

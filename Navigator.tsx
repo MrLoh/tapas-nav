@@ -7,7 +7,7 @@ import { useLengthAttribute } from 'styled-native-components';
 import * as Linking from 'expo-linking';
 
 import MoreScreen from './MoreScreen.native';
-import { ScreenWrapperContext } from './ScreenWrapper';
+import { ScreenContextProvider } from './ScreenContext';
 import NavBar, {
   BOTTOM_TABS_HEIGHT,
   SIDE_BAR_WIDTH,
@@ -25,22 +25,26 @@ declare global {
 }
 
 const Tab = createBottomTabNavigator();
-
 const Modal = createStackNavigator();
 
-type RouteConfig = {
-  name: string;
-  path: string;
-  iconName: IconName;
-  component: React.ComponentType<{}>;
-  routes?: {
-    name: string;
-    path: string;
-    component: React.ComponentType<{}>;
-  }[];
+type NavigatorConfig = {
+  domain: string;
+  tabScreens: {
+    [key: string]: {
+      exactPath: string;
+      iconName: IconName;
+      component: React.ComponentType<{}>;
+      stackScreens?: {
+        [key: string]: {
+          exactPath: string;
+          component: React.ComponentType<{}>;
+        };
+      };
+    };
+  };
 };
 
-export default function Navigator({ routes, domain }: { routes: RouteConfig[]; domain: string }) {
+export default function Navigator({ config }: { config: NavigatorConfig }) {
   const isSmallScreen = useWindowDimensions().width < 500;
   const isNative = Platform.OS !== 'web';
   const navType = isNative
@@ -58,33 +62,68 @@ export default function Navigator({ routes, domain }: { routes: RouteConfig[]; d
   );
 
   const linking = {
-    prefixes: [Linking.createURL('/'), domain],
+    prefixes: [Linking.createURL('/'), config.domain],
     config: {
       screens: Object.assign(
         {},
-        ...routes.map((tab) =>
-          tab.routes
+        ...Object.entries(config.tabScreens).map(([tabName, tabConfig]) =>
+          tabConfig.stackScreens
             ? {
-                [tab.name + 'Stack']: {
-                  initialRouteName: tab.name,
-                  path: tab.path,
+                [tabName + 'Stack']: {
+                  initialRouteName: tabName,
                   screens: Object.assign(
-                    { [tab.name]: { path: '' } },
-                    ...tab.routes.map((screen) => ({
-                      [screen.name]: { path: screen.path, exact: true },
+                    { [tabName]: { path: tabConfig.exactPath, exact: true } },
+                    ...Object.entries(tabConfig.stackScreens).map(([screenName, screenConfig]) => ({
+                      [screenName]: { path: screenConfig.exactPath, exact: true },
                     }))
                   ),
                 },
               }
-            : { [tab.name]: { path: tab.path } }
+            : { [tabName]: { path: tabConfig.exactPath, exact: true } }
         )
       ),
     },
   };
 
-  const truncate = navType === 'bottom-tabs' && routes.length > 5 ? 4 : 0;
+  const pathMap = Object.entries(config.tabScreens)
+    .map(([tabName, { stackScreens, exactPath }]) => [
+      { name: tabName, path: exactPath },
+      ...Object.entries(stackScreens || {}).map(([name, { exactPath }]) => ({
+        name,
+        path: exactPath,
+      })),
+    ])
+    .reduce((curr: { [key: string]: string }, paths) => {
+      paths.forEach(({ name, path }) => {
+        if (name in curr) {
+          throw new Error(`routes must be unique across all stacks, ${name} was duplicated`);
+        }
+        curr[name] = path;
+      });
+      return curr;
+    }, {});
 
-  console.log(JSON.stringify(linking.config, null, 2));
+  // the default useLinkBuilder hook doesn't work for determining links for a nested tab in a
+  // different stack than the one you are currently in, thus we build a custom solution
+  const buildLink = (name: string, params?: { [key: string]: string | number }) => {
+    const path = pathMap[name] || pathMap[name.replace('Stack', '')];
+    let link = path;
+    if (params) {
+      Object.entries(params).forEach(([param, value]) => {
+        if (!link.includes(`:${param}`)) {
+          throw new Error(`unknown param ${param} provided for path ${path}`);
+        }
+        link = link.replace(`:${param}`, String(value));
+      });
+    }
+    if (link.includes('/:')) {
+      throw new Error(`missing param for path ${path} in ${JSON.stringify(params)}`);
+    }
+    return link;
+  };
+
+  const truncate =
+    navType === 'bottom-tabs' && Object.entries(config.tabScreens).length > 5 ? 4 : 0;
 
   const stackScreenOptions = {
     header: () => null,
@@ -93,9 +132,10 @@ export default function Navigator({ routes, domain }: { routes: RouteConfig[]; d
   };
 
   return (
-    <ScreenWrapperContext.Provider
+    <ScreenContextProvider
       value={{
         navType,
+        buildLink,
         margins: [
           navType === 'menu' ? menuHeight : 0,
           0,
@@ -119,20 +159,23 @@ export default function Navigator({ routes, domain }: { routes: RouteConfig[]; d
             />
           )}
         >
-          {(truncate ? routes.slice(0, truncate) : routes).map((tab) =>
-            tab.routes ? (
+          {(truncate
+            ? Object.entries(config.tabScreens).slice(0, truncate)
+            : Object.entries(config.tabScreens)
+          ).map(([tabName, tabConfig]) =>
+            tabConfig.stackScreens ? (
               <Tab.Screen
-                name={tab.name + 'Stack'}
+                name={tabName + 'Stack'}
                 // @ts-ignore -- cannot easily modify this type
-                options={{ iconName: tab.iconName }}
-                key={tab.name}
+                options={{ iconName: tabConfig.iconName }}
+                key={tabName}
               >
                 {() => {
                   const Stack = createStackNavigator();
                   return (
                     <Stack.Navigator screenOptions={stackScreenOptions}>
-                      <Stack.Screen name={tab.name} component={tab.component} />
-                      {tab.routes!.map(({ name, component }) => (
+                      <Stack.Screen name={tabName} component={tabConfig.component} />
+                      {Object.entries(tabConfig.stackScreens!).map(([name, { component }]) => (
                         <Stack.Screen name={name} key={name} component={component} />
                       ))}
                     </Stack.Navigator>
@@ -141,11 +184,11 @@ export default function Navigator({ routes, domain }: { routes: RouteConfig[]; d
               </Tab.Screen>
             ) : (
               <Tab.Screen
-                name={tab.name}
-                key={tab.name}
-                component={tab.component}
+                name={tabName}
+                key={tabName}
+                component={tabConfig.component}
                 // @ts-ignore -- cannot easily modify this type
-                options={{ iconName: tab.iconName }}
+                options={{ iconName: tabConfig.iconName }}
               />
             )
           )}
@@ -157,11 +200,19 @@ export default function Navigator({ routes, domain }: { routes: RouteConfig[]; d
                 return (
                   <Stack.Navigator screenOptions={stackScreenOptions}>
                     <Stack.Screen name="More">
-                      {() => <MoreScreen items={routes.slice(truncate)}></MoreScreen>}
+                      {() => (
+                        <MoreScreen
+                          items={Object.entries(config.tabScreens)
+                            .slice(truncate)
+                            .map(([name, { iconName }]) => ({ name, iconName }))}
+                        ></MoreScreen>
+                      )}
                     </Stack.Screen>
-                    {routes.slice(truncate).map(({ name, component }) => (
-                      <Stack.Screen name={name} key={name} component={component} />
-                    ))}
+                    {Object.entries(config.tabScreens)
+                      .slice(truncate)
+                      .map(([name, { component }]) => (
+                        <Stack.Screen name={name} key={name} component={component} />
+                      ))}
                   </Stack.Navigator>
                 );
               }}
@@ -169,6 +220,6 @@ export default function Navigator({ routes, domain }: { routes: RouteConfig[]; d
           ) : null}
         </Tab.Navigator>
       </NavigationContainer>
-    </ScreenWrapperContext.Provider>
+    </ScreenContextProvider>
   );
 }

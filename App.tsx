@@ -23,57 +23,78 @@ declare module 'styled-native-components' {
 // @ts-ignore -- missing type definitions
 Text.defaultProps = { allowFontScaling: false };
 
-const routes = [
-  {
-    name: 'Dashboard',
-    path: '',
-    iconName: 'home',
-    component: Screen,
-  },
-  {
-    name: 'Reports',
-    path: 'reports',
-    iconName: 'bar-chart',
-    component: Screen,
-  },
-  {
-    name: 'DeviceList',
-    path: 'devices',
-    iconName: 'phone-landscape',
-    component: Screen,
-    routes: [
-      {
-        name: 'Device',
-        path: 'devices/:id',
-        component: Screen,
+const config = {
+  domain: 'https://tapas.com',
+  tabScreens: {
+    Dashboard: {
+      exactPath: '/',
+      iconName: 'home' as const,
+      component: Screen,
+    },
+    Reports: {
+      exactPath: '/reports',
+      iconName: 'bar-chart' as const,
+      component: Screen,
+    },
+    DevicesList: {
+      exactPath: '/devices',
+      iconName: 'phone-landscape' as const,
+      component: Screen,
+      stackScreens: {
+        Device: {
+          exactPath: '/devices/:deviceId',
+          component: Screen,
+        },
+        Update: {
+          exactPath: '/update/:updateId',
+          component: Screen,
+        },
+        UpdateCourse: {
+          exactPath: '/update/:updateId/course/:courseId',
+          component: Screen,
+        },
+        UpdateLesson: {
+          exactPath: '/update/:updateId/course/:courseId/lesson/:lessonId',
+          component: Screen,
+        },
       },
-    ],
+    },
+    OrdersList: {
+      exactPath: '/orders',
+      iconName: 'cart' as const,
+      component: Screen,
+    },
+    Training: {
+      exactPath: '/training',
+      iconName: 'book' as const,
+      component: Screen,
+      stackScreens: {
+        InPersonTrainingPrep: {
+          exactPath: '/in-person-training-prep',
+          component: Screen,
+        },
+        Course: {
+          exactPath: '/course/:courseId',
+          component: Screen,
+        },
+        Lesson: {
+          exactPath: '/course/:courseId/lesson/:lessonId',
+          component: Screen,
+        },
+      },
+    },
+    Upload: {
+      exactPath: '/upload',
+      iconName: 'cloud-upload' as const,
+      component: Screen,
+    },
+    Share: {
+      exactPath: '/share',
+      iconName: 'share' as const,
+      component: Screen,
+    },
   },
-  {
-    name: 'Orders',
-    path: 'orders',
-    iconName: 'cart',
-    component: Screen,
-  },
-  {
-    name: 'Training',
-    path: 'training',
-    iconName: 'book',
-    component: Screen,
-  },
-  {
-    name: 'Upload',
-    path: 'upload',
-    iconName: 'cloud-upload',
-    component: Screen,
-  },
-  {
-    name: 'Share',
-    path: 'share',
-    iconName: 'share',
-    component: Screen,
-  },
-];
+};
 
 export default function App() {
   const dark = useColorScheme() === 'dark';
@@ -98,7 +119,7 @@ export default function App() {
     <SafeAreaProvider>
       <ThemeProvider theme={theme}>
         <StatusBar style="auto" />
-        <Navigator routes={routes} domain="https://tapas.com" />
+        <Navigator config={config} />
       </ThemeProvider>
     </SafeAreaProvider>
   );

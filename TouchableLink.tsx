@@ -1,13 +1,13 @@
 import React, { useRef } from 'react';
-import {
-  useLinkBuilder,
-  useLinkProps,
-  CommonActions,
-  NavigationAction,
-} from '@react-navigation/native';
+import { useLinkProps, CommonActions, NavigationAction } from '@react-navigation/native';
 import { Platform, TouchableOpacity, TouchableOpacityProps, View, ViewStyle } from 'react-native';
 import { useHover, useFocus } from 'react-native-web-hooks';
+import { useScreenContext } from './ScreenContext';
 
+/**
+ * This is a replacement for Touchable opacity that can be passed a routeName and optional params
+ * instead of an onPress handler and will have correct behavior for links on web
+ */
 export default function TouchableLink({
   style,
   children,
@@ -31,13 +31,13 @@ export default function TouchableLink({
   onLongPress?: () => void;
   navigationAction?: NavigationAction;
 }) {
-  const to = useLinkBuilder()(routeName, params)!;
+  const { buildLink } = useScreenContext();
   const {
     href,
     accessibilityRole,
     onPress: onDispatchAction,
   } = useLinkProps({
-    to,
+    to: buildLink(routeName, params)!,
     action: navigationAction || CommonActions.navigate(routeName, params),
   });
   const onPress = (e: Parameters<typeof onDispatchAction>[0]) => {
