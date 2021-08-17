@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import styled from 'styled-native-components';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-
-import { Platform } from 'react-native';
+import styled, { useLengthAttribute } from 'styled-native-components';
+import { Platform, TextStyle, ViewStyle } from 'react-native';
 import { EdgeInsets, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { CommonActions, NavigationAction } from '@react-navigation/native';
 
 import Icon, { IconName } from './Icon';
 import TouchableLink from './TouchableLink';
-import { CommonActions, NavigationAction } from '@react-navigation/native';
 
 export const BOTTOM_TABS_HEIGHT = '20rem';
 export const SIDEBAR_WIDTH = '60rem';
@@ -59,49 +59,37 @@ const ToggleButton = styled.TouchableOpacity`
   border-radius: 3rem;
 `;
 
-const SideBarLinkWrapper = styled(TouchableLink)`
-  flex-direction: row;
-  justify-content: flex-start;
-  align-items: center;
-  margin: 1rem 0;
-  padding: 1rem 3rem;
-  border-radius: 1rem;
-  hovered {
-    background: $background;
-  }
-`;
-
-const BottomTabItem = styled(TouchableLink)`
-  justify-content: flex-start;
-  align-items: center;
-  margin-top: 2rem;
-  width: 14rem;
-`;
-
-const BottomTabLabel = styled.Text<{ isFocused?: boolean }>`
-  font-size: 2rem;
-  color: ${(p) => (p.isFocused ? '$primary' : '$text')};
-`;
-
 const SidebarLabel = styled.Text<{ isFocused?: boolean }>`
   font-size: 4rem;
   color: ${(p) => (p.isFocused ? '$primary' : '$text')};
   margin-left: 2rem;
 `;
 
-const MenuOverlay = styled.TouchableOpacity`
+const MenuPosition = styled.View`
   position: absolute;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
   z-index: 10;
 `;
 
-const SideBarItem = ({
+const MenuOverlay = styled.TouchableOpacity.attrs({
+  activeOpacity: 1,
+})`
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+`;
+
+const Label = styled.Text<{ isFocused: boolean }>`
+  color: ${(p) => (p.isFocused ? '$primary' : '$text')};
+`;
+
+const NavItem = ({
   collapsed,
   isFocused,
   iconName,
   label,
+  labelStyle,
   ...props
 }: {
   collapsed?: boolean;
@@ -112,14 +100,52 @@ const SideBarItem = ({
   onCheckIfNavigationShouldBePrevented: () => boolean;
   navigationAction: NavigationAction;
   onAfterNavigation?: () => void;
+  style?: ViewStyle;
+  labelStyle?: TextStyle;
 }) => {
   return (
-    <SideBarLinkWrapper {...props}>
+    <TouchableLink
+      {...props}
+      accessibilityLabel={label}
+      // TODO: test if tab is still broken on iOS, see https://github.com/react-navigation/react-navigation/blob/80a8567618b8ef52be1e4e73a9a8ccdff3a31244/packages/bottom-tabs/src/views/BottomTabItem.tsx#L266
+      accessibilityRole={Platform.select({ ios: 'button', default: 'tab', web: 'link' })}
+      accessibilityState={{ selected: isFocused }}
+    >
       <Icon color={isFocused ? '$primary' : '$text'} size="6rem" name={iconName}></Icon>
-      {collapsed ? null : <SidebarLabel isFocused={isFocused}>{label}</SidebarLabel>}
-    </SideBarLinkWrapper>
+      {collapsed ? null : (
+        <Label style={labelStyle} isFocused={isFocused}>
+          {label}
+        </Label>
+      )}
+    </TouchableLink>
   );
 };
+
+const SideBarItem = styled(NavItem)`
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  margin: 1rem 0;
+  padding: 1rem 3rem;
+  border-radius: 1rem;
+  hovered {
+    background: $background;
+  }
+  label {
+    font-size: 4rem;
+    margin-left: 2rem;
+  }
+`;
+
+const BottomTabItem = styled(NavItem)`
+  justify-content: flex-start;
+  align-items: center;
+  margin-top: 2rem;
+  width: 14rem;
+  label {
+    font-size: 2rem;
+  }
+`;
 
 export default function NavBar({
   type,
@@ -134,8 +160,11 @@ export default function NavBar({
   type: 'bottom-tabs' | 'sidebar' | 'menu';
 }) {
   const getItemConfig = (route: typeof state.routes[number], index: number) => {
+    const options = descriptors[route.key].options;
     // @ts-ignore -- cannot modify this type easily but it is passed
-    const iconName: IconName = descriptors[route.key].options.iconName;
+    const iconName: IconName = options.iconName;
+    // @ts-ignore -- cannot modify this type easily but it is passed as string
+    const label: string = options.tabBarLabel;
     const isFocused = state.index === index;
 
     const onCheckIfNavigationShouldBePrevented = () => {
@@ -150,14 +179,15 @@ export default function NavBar({
     const navigationAction = CommonActions.navigate(route.name, {
       screen:
         Platform.OS === 'web' && route.name.includes('Stack')
-          ? route.name.replace('Stack', '')
+          ? // on web we want to always go to the first screen in a stack
+            route.name.replace('Stack', '')
           : undefined,
     });
 
     return {
       routeName: route.name,
       iconName,
-      label: route.name.replace('Stack', ''),
+      label,
       isFocused,
       onCheckIfNavigationShouldBePrevented,
       navigationAction,
@@ -166,28 +196,59 @@ export default function NavBar({
 
   const safeArea = useSafeAreaInsets();
 
+  const menuAnimation = useSharedValue(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const animationConfig = {
+    stiffness: 1000,
+    damping: 500,
+    mass: 3,
+    overshootClamping: true,
+    restDisplacementThreshold: 0.01,
+    restSpeedThreshold: 0.01,
+  };
+  const openMenu = () => {
+    console.log('open');
+    setMenuOpen(true);
+    menuAnimation.value = withSpring(1, animationConfig);
+  };
+  const closeMenu = () => {
+    menuAnimation.value = withSpring(0, animationConfig, () => {
+      setMenuOpen(false);
+    });
+  };
+  const menuOverlayStyle = useAnimatedStyle(() => {
+    return {
+      position: 'absolute',
+      width: '100%',
+      height: '100%',
+      opacity: menuAnimation.value,
+    };
+  });
+  const [sidebarWidth] = useLengthAttribute(SIDEBAR_WIDTH);
+  const menuPositionStyle = useAnimatedStyle(() => {
+    return {
+      position: 'absolute',
+      height: '100%',
+      transform: [{ translateX: (menuAnimation.value - 1) * sidebarWidth * 1.2 }],
+    };
+  });
+
+  // the not found screen shouldn't display in the nav bar
+  const navItems = state.routes.filter(({ name }) => name !== 'NotFound').map(getItemConfig);
 
   switch (type) {
     case 'bottom-tabs':
       return (
-        <BottomTabsWrapper>
-          {state.routes.map(getItemConfig).map((item) => (
-            <BottomTabItem key={item.routeName} {...item}>
-              <Icon
-                color={item.isFocused ? '$primary' : '$text'}
-                name={item.iconName}
-                size="6rem"
-              />
-              <BottomTabLabel isFocused={item.isFocused}>{item.label}</BottomTabLabel>
-            </BottomTabItem>
+        <BottomTabsWrapper accessibilityRole="tablist">
+          {navItems.map((item) => (
+            <BottomTabItem key={item.routeName} {...item} />
           ))}
         </BottomTabsWrapper>
       );
     case 'sidebar':
       return (
-        <SidebarWrapper collapsed={collapsed} safeArea={safeArea}>
-          {state.routes.map(getItemConfig).map((item) => {
+        <SidebarWrapper collapsed={collapsed} safeArea={safeArea} accessibilityRole="tablist">
+          {navItems.map((item) => {
             return <SideBarItem collapsed={collapsed} key={item.routeName} {...item} />;
           })}
           <ToggleButton onPress={toggleCollapsed}>
@@ -198,23 +259,23 @@ export default function NavBar({
     case 'menu':
       return (
         <>
-          {menuOpen ? (
-            <MenuOverlay onPress={() => setMenuOpen(false)}>
-              <SidebarWrapper safeArea={safeArea}>
-                {state.routes.map(getItemConfig).map((item) => {
+          <MenuPosition pointerEvents={menuOpen ? 'auto' : 'none'}>
+            <Animated.View style={menuOverlayStyle}>
+              <MenuOverlay onPress={closeMenu}></MenuOverlay>
+            </Animated.View>
+            <Animated.View style={menuPositionStyle}>
+              <SidebarWrapper safeArea={safeArea} accessibilityRole="tablist">
+                <Icon name="close" color="$text" size="6rem" onPress={closeMenu} />
+                {navItems.map((item) => {
                   return (
-                    <SideBarItem
-                      key={item.routeName}
-                      onAfterNavigation={() => setMenuOpen(false)}
-                      {...item}
-                    />
+                    <SideBarItem key={item.routeName} onAfterNavigation={closeMenu} {...item} />
                   );
                 })}
               </SidebarWrapper>
-            </MenuOverlay>
-          ) : null}
+            </Animated.View>
+          </MenuPosition>
           <MenuWrapper>
-            <Icon name="menu" color="$text" size="6rem" onPress={() => setMenuOpen(true)} />
+            <Icon name="menu" color="$text" size="6rem" onPress={openMenu} />
           </MenuWrapper>
         </>
       );

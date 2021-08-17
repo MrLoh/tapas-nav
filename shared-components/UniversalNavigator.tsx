@@ -30,10 +30,12 @@ const Modal = createStackNavigator();
 
 type NavigatorConfig = {
   domain: string;
+  notFoundScreenComponent: React.ComponentType<{}>;
   tabScreens: {
     [key: string]: {
       exactPath: string;
       iconName: IconName;
+      label: string;
       component: React.ComponentType<{}>;
       stackScreens?: {
         [key: string]: {
@@ -74,7 +76,7 @@ export default function UniversalNavigator({ config }: { config: NavigatorConfig
     prefixes: [Linking.createURL('/'), config.domain],
     config: {
       screens: Object.assign(
-        {},
+        { NotFound: { path: '*' } },
         ...Object.entries(config.tabScreens).map(([tabName, tabConfig]) =>
           tabConfig.stackScreens
             ? {
@@ -175,6 +177,7 @@ export default function UniversalNavigator({ config }: { config: NavigatorConfig
                 options={{
                   // @ts-ignore -- cannot easily modify this type
                   iconName: tabConfig.iconName,
+                  tabBarLabel: tabConfig.label,
                   // cannot be lazy so the stack navigator is initialized when navigating to a sub
                   // screen from a different tab (e.g. from dashboard to order details)
                   lazy: false,
@@ -198,11 +201,15 @@ export default function UniversalNavigator({ config }: { config: NavigatorConfig
                 name={tabName}
                 key={tabName}
                 component={tabConfig.component}
-                // @ts-ignore -- cannot easily modify this type
-                options={{ iconName: tabConfig.iconName }}
+                options={{
+                  // @ts-ignore -- cannot easily modify this type
+                  iconName: tabConfig.iconName,
+                  tabBarLabel: tabConfig.label,
+                }}
               />
             )
           )}
+          <Tab.Screen name="NotFound" component={config.notFoundScreenComponent} />
         </Tab.Navigator>
       </NavigationContainer>
     </ScreenContextProvider>

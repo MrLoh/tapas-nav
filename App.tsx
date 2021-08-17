@@ -10,6 +10,7 @@ import { UniversalNavigator, useNavType } from './shared-components';
 
 import Screen from './screens/Screen';
 import MoreScreen from './screens/MoreScreen.native';
+import NotFoundScreen from './screens/NotFoundScreen';
 
 enableScreens();
 
@@ -25,21 +26,26 @@ declare module 'styled-native-components' {
 // @ts-ignore -- missing type definitions
 Text.defaultProps = { allowFontScaling: false };
 
+// screen definitions
+
 const Dashboard = {
   exactPath: '/',
   iconName: 'home' as const,
+  label: 'Dashboard',
   component: Screen,
 };
 
 const Reports = {
   exactPath: '/reports',
   iconName: 'bar-chart' as const,
+  label: 'Reports',
   component: Screen,
 };
 
 const DevicesList = {
   exactPath: '/devices',
   iconName: 'phone-landscape' as const,
+  label: 'Devices',
   component: Screen,
   stackScreens: {
     Device: {
@@ -64,12 +70,14 @@ const DevicesList = {
 const OrdersList = {
   exactPath: '/orders',
   iconName: 'cart' as const,
+  label: 'Orders',
   component: Screen,
 };
 
 const Training = {
   exactPath: '/training',
   iconName: 'book' as const,
+  label: 'Training',
   component: Screen,
   stackScreens: {
     InPersonTrainingPrep: {
@@ -90,18 +98,21 @@ const Training = {
 const Upload = {
   exactPath: '/upload',
   iconName: 'cloud-upload' as const,
+  label: 'Upload',
   component: Screen,
 };
 
 const Share = {
   exactPath: '/share',
   iconName: 'share' as const,
+  label: 'Share',
   component: Screen,
 };
 
 const More = {
   exactPath: '/more',
   iconName: 'menu' as const,
+  label: 'More',
   component: MoreScreen,
   stackScreens: {
     ...Training.stackScreens,
@@ -117,6 +128,7 @@ const Navigator = () => {
     <UniversalNavigator
       config={{
         domain: 'https://tapas.com',
+        notFoundScreenComponent: NotFoundScreen,
         tabScreens:
           navType === 'bottom-tabs'
             ? {

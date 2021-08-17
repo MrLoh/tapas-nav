@@ -19,6 +19,7 @@ const Wrapper = styled.ScrollView<{
   }
 `;
 
+// TODO: add error boundary handling here
 export default function ScreenWrapper({ children }: { children: React.ReactNode }) {
   const safeArea = useSafeAreaInsets();
   const { margins } = useScreenContext();
