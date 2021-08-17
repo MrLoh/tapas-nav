@@ -11,6 +11,7 @@ import { UniversalNavigator, useNavType } from './shared-components';
 import Screen from './screens/Screen';
 import MoreScreen from './screens/MoreScreen.native';
 import NotFoundScreen from './screens/NotFoundScreen';
+import ModalScreen from './screens/ModalScreen';
 
 enableScreens();
 
@@ -122,6 +123,16 @@ const More = {
   },
 };
 
+const Profile = {
+  exactPath: '/profile',
+  component: ModalScreen,
+};
+
+const Notifications = {
+  exactPath: '/notifications',
+  component: ModalScreen,
+};
+
 const Navigator = () => {
   const { navType } = useNavType();
   return (
@@ -147,6 +158,7 @@ const Navigator = () => {
                 Upload,
                 Share,
               },
+        modalScreens: { Notifications, Profile },
       }}
     />
   );

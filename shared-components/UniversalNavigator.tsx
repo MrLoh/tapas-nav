@@ -31,6 +31,12 @@ const Modal = createStackNavigator();
 type NavigatorConfig = {
   domain: string;
   notFoundScreenComponent: React.ComponentType<{}>;
+  modalScreens?: {
+    [key: string]: {
+      exactPath: string;
+      component: React.ComponentType<{}>;
+    };
+  };
   tabScreens: {
     [key: string]: {
       exactPath: string;
@@ -76,43 +82,55 @@ export default function UniversalNavigator({ config }: { config: NavigatorConfig
     prefixes: [Linking.createURL('/'), config.domain],
     config: {
       screens: Object.assign(
-        { NotFound: { path: '*' } },
-        ...Object.entries(config.tabScreens).map(([tabName, tabConfig]) =>
-          tabConfig.stackScreens
-            ? {
-                [tabName + 'Stack']: {
-                  initialRouteName: tabName,
-                  screens: Object.assign(
-                    { [tabName]: { path: tabConfig.exactPath, exact: true } },
-                    ...Object.entries(tabConfig.stackScreens).map(([screenName, screenConfig]) => ({
-                      [screenName]: { path: screenConfig.exactPath, exact: true },
-                    }))
-                  ),
-                },
-              }
-            : { [tabName]: { path: tabConfig.exactPath, exact: true } }
-        )
+        {
+          Main: {
+            path: '',
+            screens: Object.assign(
+              { NotFound: { path: '*' } },
+              ...Object.entries(config.tabScreens).map(([tabName, tabConfig]) =>
+                tabConfig.stackScreens
+                  ? {
+                      [tabName + 'Stack']: {
+                        initialRouteName: tabName,
+                        screens: Object.assign(
+                          { [tabName]: { path: tabConfig.exactPath, exact: true } },
+                          ...Object.entries(tabConfig.stackScreens).map(
+                            ([screenName, screenConfig]) => ({
+                              [screenName]: { path: screenConfig.exactPath, exact: true },
+                            })
+                          )
+                        ),
+                      },
+                    }
+                  : { [tabName]: { path: tabConfig.exactPath, exact: true } }
+              )
+            ),
+          },
+        },
+        ...Object.entries(config.modalScreens || {}).map(([modalName, modalConfig]) => ({
+          [modalName]: { path: modalConfig.exactPath, exact: true },
+        }))
       ),
     },
   };
 
-  const pathMap = Object.entries(config.tabScreens)
-    .map(([tabName, { stackScreens, exactPath }]) => [
+  const pathMap = [
+    config.modalScreens
+      ? Object.entries(config.modalScreens).map(([name, { exactPath: path }]) => ({ name, path }))
+      : [],
+    ...Object.entries(config.tabScreens).map(([tabName, { stackScreens, exactPath }]) => [
       { name: tabName, path: exactPath },
-      ...Object.entries(stackScreens || {}).map(([name, { exactPath }]) => ({
-        name,
-        path: exactPath,
-      })),
-    ])
-    .reduce((curr: { [key: string]: string }, paths) => {
-      paths.forEach(({ name, path }) => {
-        if (name in curr) {
-          throw new Error(`routes must be unique across all stacks, ${name} was duplicated`);
-        }
-        curr[name] = path;
-      });
-      return curr;
-    }, {});
+      ...Object.entries(stackScreens || {}).map(([name, { exactPath: path }]) => ({ name, path })),
+    ]),
+  ].reduce((curr: { [key: string]: string }, paths) => {
+    paths.forEach(({ name, path }) => {
+      if (name in curr) {
+        throw new Error(`routes must be unique across all stacks, ${name} was duplicated`);
+      }
+      curr[name] = path;
+    });
+    return curr;
+  }, {});
 
   // the default useLinkBuilder hook doesn't work for determining links for a nested tab in a
   // different stack than the one you are currently in, thus we build a custom solution
@@ -136,12 +154,6 @@ export default function UniversalNavigator({ config }: { config: NavigatorConfig
     return link;
   };
 
-  const stackScreenOptions = {
-    header: () => null,
-    gestureResponseDistance:
-      (navType === 'sidebar' ? (sideBarCollapsed ? sidebarWidthCollapsed : sidebarWidth) : 0) + 50,
-  };
-
   return (
     <ScreenContextProvider
       value={{
@@ -156,61 +168,82 @@ export default function UniversalNavigator({ config }: { config: NavigatorConfig
       }}
     >
       <NavigationContainer linking={linking}>
-        <Tab.Navigator
-          screenOptions={{ header: () => null }}
-          tabBar={(props) => (
-            <NavBar
-              type={navType}
-              collapsed={sideBarCollapsed}
-              toggleCollapsed={() => {
-                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                setSideBarCollapsed((v) => !v);
-              }}
-              {...props}
-            />
-          )}
-        >
-          {Object.entries(config.tabScreens).map(([tabName, tabConfig]) =>
-            tabConfig.stackScreens ? (
-              <Tab.Screen
-                name={tabName + 'Stack'}
-                options={{
-                  // @ts-ignore -- cannot easily modify this type
-                  iconName: tabConfig.iconName,
-                  tabBarLabel: tabConfig.label,
-                  // cannot be lazy so the stack navigator is initialized when navigating to a sub
-                  // screen from a different tab (e.g. from dashboard to order details)
-                  lazy: false,
-                }}
-                key={tabName}
+        <Modal.Navigator screenOptions={{ header: () => null, presentation: 'modal' }}>
+          <Modal.Screen name="Main">
+            {() => (
+              <Tab.Navigator
+                screenOptions={{ header: () => null }}
+                tabBar={(props) => (
+                  <NavBar
+                    type={navType}
+                    collapsed={sideBarCollapsed}
+                    toggleCollapsed={() => {
+                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                      setSideBarCollapsed((v) => !v);
+                    }}
+                    {...props}
+                  />
+                )}
               >
-                {() => {
-                  const Stack = createStackNavigator();
-                  return (
-                    <Stack.Navigator screenOptions={stackScreenOptions}>
-                      <Stack.Screen name={tabName} component={tabConfig.component} />
-                      {Object.entries(tabConfig.stackScreens!).map(([name, { component }]) => (
-                        <Stack.Screen name={name} key={name} component={component} />
-                      ))}
-                    </Stack.Navigator>
-                  );
-                }}
-              </Tab.Screen>
-            ) : (
-              <Tab.Screen
-                name={tabName}
-                key={tabName}
-                component={tabConfig.component}
-                options={{
-                  // @ts-ignore -- cannot easily modify this type
-                  iconName: tabConfig.iconName,
-                  tabBarLabel: tabConfig.label,
-                }}
-              />
-            )
-          )}
-          <Tab.Screen name="NotFound" component={config.notFoundScreenComponent} />
-        </Tab.Navigator>
+                {Object.entries(config.tabScreens).map(([tabName, tabConfig]) =>
+                  tabConfig.stackScreens ? (
+                    <Tab.Screen
+                      key={tabName}
+                      name={tabName + 'Stack'}
+                      options={{
+                        // @ts-ignore -- cannot easily modify this type
+                        iconName: tabConfig.iconName,
+                        tabBarLabel: tabConfig.label,
+                        // cannot be lazy so the stack navigator is initialized when navigating to a sub
+                        // screen from a different tab (e.g. from dashboard to order details)
+                        lazy: false,
+                      }}
+                    >
+                      {() => {
+                        const Stack = createStackNavigator();
+                        return (
+                          <Stack.Navigator
+                            screenOptions={{
+                              header: () => null,
+                              gestureResponseDistance:
+                                (navType === 'sidebar'
+                                  ? sideBarCollapsed
+                                    ? sidebarWidthCollapsed
+                                    : sidebarWidth
+                                  : 0) + 50,
+                            }}
+                          >
+                            <Stack.Screen name={tabName} component={tabConfig.component} />
+                            {Object.entries(tabConfig.stackScreens!).map(
+                              ([name, { component }]) => (
+                                <Stack.Screen key={name} name={name} component={component} />
+                              )
+                            )}
+                          </Stack.Navigator>
+                        );
+                      }}
+                    </Tab.Screen>
+                  ) : (
+                    <Tab.Screen
+                      key={tabName}
+                      name={tabName}
+                      component={tabConfig.component}
+                      options={{
+                        // @ts-ignore -- cannot easily modify this type
+                        iconName: tabConfig.iconName,
+                        tabBarLabel: tabConfig.label,
+                      }}
+                    />
+                  )
+                )}
+                <Tab.Screen name="NotFound" component={config.notFoundScreenComponent} />
+              </Tab.Navigator>
+            )}
+          </Modal.Screen>
+          {Object.entries(config.modalScreens || {}).map(([name, { component }]) => (
+            <Modal.Screen key={name} name={name} component={component} />
+          ))}
+        </Modal.Navigator>
       </NavigationContainer>
     </ScreenContextProvider>
   );
