@@ -9,14 +9,13 @@ import TouchableLink from './TouchableLink';
 
 const Wrapper = styled.ScrollView<{
   safeArea: EdgeInsets;
-  isModal: boolean;
   margins: [number, number, number, number];
 }>`
-  margin: ${(p) => (p.isModal ? 0 : p.margins.join('px '))}px;
+  margin: ${(p) => p.margins.join('px ')}px;
   flex: 1;
   background: $background;
   contentContainer {
-    padding-top: ${(p) => (p.isModal ? 0 : p.safeArea.top)}px;
+    padding-top: ${(p) => p.safeArea.top}px;
     padding-bottom: ${(p) => (p.margins[2] ? 0 : p.safeArea.bottom)}px;
   }
 `;
@@ -34,13 +33,7 @@ const ToolbarWrapper = styled.View`
 const ToolbarItem = styled(TouchableLink)``;
 
 // TODO: add error boundary handling here
-export default function ScreenWrapper({
-  screenType = 'stack',
-  children,
-}: {
-  screenType?: 'stack' | 'modal';
-  children: React.ReactNode;
-}) {
+export default function ScreenWrapper({ children }: { children: React.ReactNode }) {
   const safeArea = useSafeAreaInsets();
   const { margins } = useScreenContext();
   const navigation = useNavigation();
@@ -51,23 +44,17 @@ export default function ScreenWrapper({
   // need to get state this way to ensure it refreshes
   const showBackButton = useNavigationState((s) => s.type === 'stack' && s.routes.length > 1);
   return (
-    <Wrapper safeArea={safeArea} margins={margins} isModal={screenType === 'modal'} ref={ref}>
-      {screenType === 'modal' ? null : (
-        <ToolbarWrapper>
-          <ToolbarItem routeName="Profile">
-            <Icon name="person-outline" size="6rem" />
-          </ToolbarItem>
-          <ToolbarItem routeName="Notifications">
-            <Icon name="notifications-outline" size="6rem" />
-          </ToolbarItem>
-        </ToolbarWrapper>
-      )}
+    <Wrapper safeArea={safeArea} margins={margins} ref={ref}>
+      <ToolbarWrapper>
+        <ToolbarItem routeName="Profile">
+          <Icon name="person-outline" size="6rem" />
+        </ToolbarItem>
+        <ToolbarItem routeName="Notifications">
+          <Icon name="notifications-outline" size="6rem" />
+        </ToolbarItem>
+      </ToolbarWrapper>
       {showBackButton ? (
-        <Icon
-          name={screenType === 'modal' ? 'close' : 'chevron-back'}
-          size="8rem"
-          onPress={() => navigation.goBack()}
-        />
+        <Icon name="chevron-back" size="8rem" onPress={() => navigation.goBack()} />
       ) : null}
       {children}
     </Wrapper>

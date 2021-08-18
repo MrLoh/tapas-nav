@@ -81,6 +81,7 @@ export default function UniversalNavigator({ config }: { config: NavigatorConfig
   const linking = {
     prefixes: [Linking.createURL('/'), config.domain],
     config: {
+      initialRouteName: 'Main',
       screens: Object.assign(
         {
           Main: {
@@ -168,7 +169,12 @@ export default function UniversalNavigator({ config }: { config: NavigatorConfig
       }}
     >
       <NavigationContainer linking={linking}>
-        <Modal.Navigator screenOptions={{ header: () => null, presentation: 'modal' }}>
+        <Modal.Navigator
+          screenOptions={{
+            header: () => null,
+            presentation: navType === 'bottom-tabs' ? 'modal' : 'transparentModal',
+          }}
+        >
           <Modal.Screen name="Main">
             {() => (
               <Tab.Navigator

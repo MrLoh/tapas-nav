@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-native-components';
 import { useRoute } from '@react-navigation/native';
 
-import { ScreenWrapper } from '../shared-components';
+import { ModalWrapper } from '../shared-components';
 
 const Title = styled.Text`
   font-size: 6rem;
@@ -14,8 +14,8 @@ const Title = styled.Text`
 export default function ModalScreen() {
   const { name } = useRoute<any>();
   return (
-    <ScreenWrapper screenType="modal">
+    <ModalWrapper>
       <Title>{name}</Title>
-    </ScreenWrapper>
+    </ModalWrapper>
   );
 }
